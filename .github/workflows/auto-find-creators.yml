@@ -6,11 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       niche:
-        description: "Niche or keyword to search for"
-        required: false
-        type: string
-      keyword:
-        description: "Alternative keyword filter"
+        description: "Niche to search (fitness, finance, tech, marketing, lifestyle)"
         required: false
         type: string
 
@@ -28,69 +24,21 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install requests beautifulsoup4
 
       - name: Run Twitter creator finder
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-        run: |
-          ARGS=""
-          if [ -n "${{ github.event.inputs.niche }}" ]; then
-            ARGS="--niche ${{ github.event.inputs.niche }}"
-          fi
-          if [ -n "${{ github.event.inputs.keyword }}" ]; then
-            ARGS="$ARGS --keyword ${{ github.event.inputs.keyword }}"
-          fi
-          python scripts/twitter_finder.py $ARGS
-
-      - name: Merge new creators into pipeline.csv
-        run: |
-          python -c "
-          import csv, os
-
-          new_file = 'new_creators.csv'
-          pipeline = 'pipeline.csv'
-
-          if not os.path.exists(new_file):
-              print('No new creators file found, skipping merge.')
-              exit(0)
-
-          existing = set()
-          if os.path.exists(pipeline):
-              with open(pipeline, 'r', newline='', encoding='utf-8') as f:
-                  for row in csv.DictReader(f):
-                      existing.add(row.get('username', '').lower())
-
-          new_rows = []
-          with open(new_file, 'r', newline='', encoding='utf-8') as f:
-              for row in csv.DictReader(f):
-                  if row.get('username', '').lower() not in existing:
-                      new_rows.append(row)
-
-          if not new_rows:
-              print('No new creators to add.')
-              exit(0)
-
-          fieldnames = list(new_rows[0].keys())
-          write_header = not os.path.exists(pipeline)
-
-          with open(pipeline, 'a', newline='', encoding='utf-8') as f:
-              writer = csv.DictWriter(f, fieldnames=fieldnames)
-              if write_header:
-                  writer.writeheader()
-              writer.writerows(new_rows)
-
-          print(f'Added {len(new_rows)} new creators to pipeline.csv')
-          "
+        run: python scripts/twitter_finder.py
 
       - name: Commit updated pipeline
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pipeline.csv
+          git add data/pipeline.csv
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "Update pipeline.csv with new creators"
+            git commit -m "Auto-find: added new creators to pipeline [skip ci]"
             git push
           fi
