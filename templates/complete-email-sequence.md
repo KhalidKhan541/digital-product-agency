@@ -27,7 +27,7 @@ I help creators like you launch digital products. Here's how it works:
 
 You do zero work. I handle everything.
 
-Interested? Reply YES and I'll send you a free sample.
+Interested? Reply YES and I'll send you the full list of products I can create.
 
 Best,
 {{your_name}}
@@ -39,52 +39,55 @@ Best,
 
 **From:** {{your_name}} <{{your_email}}>
 **To:** creator@example.com
-**Subject:** Here's what I can create for you
+**Subject:** Here's everything I can create for you
 
 ---
 
 Hi {{creator_name}},
 
-Following up on my last email. Here's a list of digital products I can create for you:
+Following up on my last email. Here's the complete list of digital products I can create for you:
 
-**Ebooks & Guides:**
-- How-to guide for your niche
-- Beginner's guide
-- Advanced strategies ebook
-- Step-by-step blueprint
-- Cheat sheet / Quick reference guide
+**EBOOKS & GUIDES:**
+- How-to Guide
+- Beginner's Guide
+- Advanced Guide
+- Blueprint
+- Cheat Sheet
 
-**Templates & Swipe Files:**
-- Social media templates
-- Email templates
-- Business plan templates
-- Budget/finance templates
-- Resume/cover letter templates
-- Notion/Google Sheets templates
+**TEMPLATES:**
+- Social Media Templates
+- Email Templates
+- Business Templates
+- Notion Templates
+- Resume Templates
+- Canva Templates
+- Google Sheets Templates
 
-**Courses & Workshops:**
-- Video course (I write scripts + slides)
-- Workshop materials
-- Webinar presentation
-- Mini-course (5-7 lessons)
+**COURSES:**
+- Mini-Course
+- Video Course
+- Workshop
+- Webinar
+- Tutorial
 
-**Checklists & Planners:**
-- Daily/weekly/monthly planners
-- Goal-setting worksheets
-- Habit trackers
-- Project planning kits
+**PLANNERS:**
+- Daily/Weekly/Monthly Planner
+- Goal-Setting Worksheets
+- Habit Tracker
+- Budget Tracker
+- Content Calendar
 
-**Community Access:**
-- Discord community setup
-- Facebook group guides
-- Membership site structure
+**CHECKLISTS:**
+- Pre-Launch Checklist
+- Morning Routine Checklist
+- Business Launch Kit
+- Social Media Checklist
 
-**Services I Handle:**
-- Landing page creation
-- Email sequence writing
-- Social media content
-- Launch strategy
-- Customer support setup
+**OTHER:**
+- Resource List
+- Swipe File
+- Case Study
+- Certification Program
 
 Pick any product from this list. I'll create it for you in 48 hours. You approve it, we launch, you get 70% of profits.
 
@@ -133,7 +136,7 @@ You did zero work. I created everything.
 
 This only works if you make money. I only get paid when you get paid.
 
-Ready? Reply READY and tell me what product you want.
+Ready? Reply READY and tell me what product you want from the list I sent.
 
 Best,
 {{your_name}}
@@ -151,25 +154,25 @@ Best,
 
 Hi {{creator_name}},
 
-I've helped a few creators launch products. Here's what happened:
+I've helped creators launch these products:
 
-**Creator 1:**
-- Product: Ebook
+**Ebook Launch:**
+- Product: How-to Guide
 - Price: $27
 - Sales: 89 in first week
-- Their earnings: $1,683 (70%)
+- Creator earned: $1,683 (70%)
 
-**Creator 2:**
-- Product: Template pack
+**Template Launch:**
+- Product: Social Media Templates
 - Price: $19
 - Sales: 156 in first week
-- Their earnings: $2,070 (70%)
+- Creator earned: $2,070 (70%)
 
-**Creator 3:**
-- Product: Mini-course
+**Course Launch:**
+- Product: Mini-Course
 - Price: $47
 - Sales: 64 in first week
-- Their earnings: $2,105 (70%)
+- Creator earned: $2,105 (70%)
 
 All three creators did minimal work. I handled everything.
 
@@ -203,9 +206,9 @@ Here's why:
 **Spots remaining: 3**
 
 Here's what you get:
-- Custom digital product (any from the list)
+- Custom digital product (any from the list I sent)
 - Landing page
-- 5-email launch sequence
+- Email launch sequence
 - Social media posts
 - Launch strategy
 
@@ -241,6 +244,14 @@ This is my final email about this opportunity.
 5. You share with your audience
 6. You get 70% of every sale
 
+**Product options:**
+- Ebooks: How-to Guide, Beginner's Guide, Advanced Guide, Blueprint, Cheat Sheet
+- Templates: Social Media, Email, Business, Notion, Resume, Canva, Google Sheets
+- Courses: Mini-Course, Video Course, Workshop, Webinar, Tutorial
+- Planners: Daily/Weekly/Monthly, Goal-Setting, Habit Tracker, Budget, Content Calendar
+- Checklists: Pre-Launch, Morning Routine, Business Launch, Social Media
+- Other: Resource List, Swipe File, Case Study, Certification Program
+
 **What happens if you say NO:**
 - No hard feelings
 - I move on to other creators
@@ -270,6 +281,12 @@ I sent you a few emails about helping you launch a digital product.
 
 Just one question: Is this something you're interested in?
 
+Here's what I offered:
+- I create any digital product for you
+- I handle landing page + emails
+- You get 70% of profits
+- You do zero work
+
 Reply YES or NO. Either way, no hard feelings.
 
 Best,
@@ -292,11 +309,14 @@ This is my final email. I promise.
 
 I reached out because I believe your audience would benefit from a digital product. I still think that's true.
 
-But I don't want to keep bothering you.
-
 Here's my offer:
-- If you're interested, reply anytime
+- If you're interested, reply anytime and I'll help
 - If not, I'll leave you alone
+
+The products I can create:
+- Ebooks, Templates, Courses, Planners, Checklists, and more
+
+You get 70% of profits. I do all the work.
 
 Either way, keep creating great content.
 
@@ -308,91 +328,66 @@ P.S. - The offer stands whenever you're ready. No expiration.
 ---
 ---
 
-## Digital Products I Can Create
+## Complete Product List
 
-### Ebooks & Guides
+### EBOOKS & GUIDES
 | Product | Description | Price Range |
 |---------|-------------|-------------|
-| How-to Guide | Step-by-step instructions for a specific task | $9-27 |
-| Beginner's Guide | Introduction to a topic for newbies | $12-27 |
-| Advanced Guide | Deep dive for experienced users | $19-47 |
+| How-to Guide | Step-by-step instructions | $9-27 |
+| Beginner's Guide | Introduction for newbies | $12-27 |
+| Advanced Guide | Deep dive for experts | $19-47 |
 | Blueprint | Complete system/strategy | $27-67 |
-| Cheat Sheet | Quick reference with key points | $7-19 |
-| Playbook | Strategy document with tactics | $19-47 |
-| Resource List | Curated tools and resources | $9-19 |
-| Case Study | Analysis of success/failure | $12-27 |
+| Cheat Sheet | Quick reference guide | $7-19 |
 
-### Templates & Swipe Files
+### TEMPLATES
 | Product | Description | Price Range |
 |---------|-------------|-------------|
 | Social Media Templates | Ready-to-post content | $12-27 |
-| Email Templates | Pre-written email sequences | $19-47 |
-| Business Templates | Plans, proposals, strategies | $19-47 |
-| Finance Templates | Budgets, trackers, planners | $12-27 |
-| Resume Templates | Professional resume designs | $9-19 |
-| Notion Templates | Pre-built Notion systems | $12-27 |
-| Google Sheets Templates | Spreadsheets for various uses | $9-19 |
+| Email Templates | Pre-written sequences | $19-47 |
+| Business Templates | Plans, proposals | $19-47 |
+| Notion Templates | Pre-built systems | $12-27 |
+| Resume Templates | Professional designs | $9-19 |
 | Canva Templates | Design templates | $12-27 |
-| Twitter/X Thread Templates | Engagement templates | $9-19 |
-| LinkedIn Post Templates | Professional content | $12-27 |
+| Google Sheets Templates | Spreadsheets | $9-19 |
 
-### Courses & Education
+### COURSES
 | Product | Description | Price Range |
 |---------|-------------|-------------|
-| Mini-Course | 5-7 lessons on a topic | $27-67 |
+| Mini-Course | 5-7 lessons | $27-67 |
 | Video Course | Full video lessons | $47-197 |
-| Workshop Materials | Presentation + exercises | $19-47 |
-| Webinar Slides | Presentation deck | $12-27 |
-| Tutorial Series | Step-by-step learning | $19-47 |
-| Certification Program | Complete training + certificate | $97-297 |
+| Workshop | Presentation + exercises | $19-47 |
+| Webinar | Presentation deck | $12-27 |
+| Tutorial | Step-by-step learning | $19-47 |
 
-### Planners & Trackers
+### PLANNERS
 | Product | Description | Price Range |
 |---------|-------------|-------------|
-| Daily Planner | Hourly schedule template | $7-19 |
-| Weekly Planner | Week-at-a-glance | $9-19 |
-| Monthly Planner | Month overview + goals | $12-27 |
-| Goal Setting Worksheets | Goal achievement system | $12-27 |
-| Habit Tracker | Daily habit monitoring | $7-19 |
-| Fitness Tracker | Workout + meal planning | $12-27 |
+| Daily/Weekly/Monthly Planner | Schedule templates | $7-19 |
+| Goal-Setting Worksheets | Goal achievement | $12-27 |
+| Habit Tracker | Daily monitoring | $7-19 |
 | Budget Tracker | Expense management | $9-19 |
-| Reading Tracker | Book list + notes | $7-12 |
 | Content Calendar | Social media planning | $12-27 |
 
-### Checklists & Systems
+### CHECKLISTS
 | Product | Description | Price Range |
 |---------|-------------|-------------|
-| Pre-launch Checklist | Before launching a product | $9-19 |
-| Morning Routine Checklist | Daily startup system | $7-12 |
-| Business Launch Kit | Everything to start a business | $27-47 |
-| Website Launch Checklist | Before going live | $9-19 |
-| Social Media Checklist | Daily/weekly posting guide | $7-12 |
-| Email Marketing Checklist | Campaign preparation | $9-19 |
+| Pre-Launch Checklist | Before launching | $9-19 |
+| Morning Routine Checklist | Daily startup | $7-12 |
+| Business Launch Kit | Start a business | $27-47 |
+| Social Media Checklist | Daily/weekly posting | $7-12 |
 
-### Community & Membership
+### OTHER
 | Product | Description | Price Range |
 |---------|-------------|-------------|
-| Discord Setup Guide | Community building guide | $19-47 |
-| Facebook Group Guide | Group management system | $12-27 |
-| Membership Site Guide | Recurring revenue setup | $27-47 |
-| Community Playbook | Engagement strategies | $19-47 |
-
-### Services I Handle
-| Service | Description |
-|---------|-------------|
-| Landing Page | I create the sales page |
-| Email Sequence | 5-7 email launch sequence |
-| Social Media Posts | Content for promotion |
-| Launch Strategy | Day-by-day plan |
-| Copywriting | All text content |
-| Basic Design | Product covers, graphics |
-| Email Setup | SMTP configuration |
-| Analytics Setup | Tracking sales |
+| Resource List | Curated tools | $9-19 |
+| Swipe File | Pre-made content | $12-27 |
+| Case Study | Success analysis | $12-27 |
+| Certification Program | Training + certificate | $97-297 |
 
 ---
 ---
 
-## Personalization Variables
+## Variables
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -400,8 +395,6 @@ P.S. - The offer stands whenever you're ready. No expiration.
 | {{your_email}} | Your email | your-email@gmail.com |
 | {{creator_name}} | Creator's name | Sarah |
 | {{follower_count}} | Their followers | 45,000 |
-| {{platform}} | Where they post | Twitter, Instagram |
-| {{niche}} | Their niche | fitness, finance, tech |
 
 ---
 ---
@@ -414,15 +407,19 @@ P.S. - The offer stands whenever you're ready. No expiration.
 >
 > Which product would you like me to create?
 >
-> Here are popular choices:
-> - How-to Ebook ($27)
-> - Template Pack ($19)
-> - Mini-Course ($47)
-> - Cheat Sheet ($9)
+> **Ebooks:** How-to Guide, Beginner's Guide, Advanced Guide, Blueprint, Cheat Sheet
 >
-> Or tell me your idea and I'll create it.
+> **Templates:** Social Media, Email, Business, Notion, Resume, Canva, Google Sheets
 >
-> I'll have it ready in 48 hours.
+> **Courses:** Mini-Course, Video Course, Workshop, Webinar, Tutorial
+>
+> **Planners:** Daily/Weekly/Monthly, Goal-Setting, Habit Tracker, Budget, Content Calendar
+>
+> **Checklists:** Pre-Launch, Morning Routine, Business Launch, Social Media
+>
+> **Other:** Resource List, Swipe File, Case Study, Certification Program
+>
+> Tell me your choice and I'll have it ready in 48 hours.
 
 ### When they ask about pricing:
 
@@ -447,14 +444,3 @@ P.S. - The offer stands whenever you're ready. No expiration.
 > Offer stands whenever you're ready. Just reply to this email.
 >
 > Keep creating great content!
-
-### When they ask "what's the catch?":
-
-> No catch. Here's the deal:
->
-> - I create the product
-> - You approve it
-> - You share with your audience
-> - We split 70/30 (you get more)
->
-> I only make money when you make money. Zero risk for you.
