@@ -1,0 +1,59 @@
+name: Find Creators
+
+on:
+  schedule:
+    - cron: '0 9 * * *'  # Daily at 9 AM UTC
+  workflow_dispatch:
+
+jobs:
+  find-creators:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find creators on Twitter/X
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          echo "## Creator Search Results" > data/creators-report.md
+          echo "Date: $(date -u)" >> data/creators-report.md
+          echo "" >> data/creators-report.md
+          
+          # Twitter search queries for creators with audience but no product
+          QUERIES=(
+            "influencer no product launch"
+            "creator audience monetize"
+            "content creator digital product"
+            "youtuber course launch"
+            "podcast sponsor affiliate"
+          )
+          
+          echo "Searching for creators..." >> data/creators-report.md
+          echo "" >> data/creators-report.md
+          
+          # Use Groq to generate search strategy
+          curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "llama-3.3-70b-versatile",
+              "messages": [
+                {"role": "system", "content": "You are a business analyst. Output JSON only."},
+                {"role": "user", "content": "Generate a list of 20 Twitter search queries to find content creators with 10K-100K followers who have audience but no digital product. Output as JSON array of strings. Focus on niches: fitness, finance, tech, lifestyle, business."}
+              ],
+              "temperature": 0.7
+            }' | jq -r '.choices[0].message.content' > /tmp/search_queries.json
+          
+          cat /tmp/search_queries.json >> data/creators-report.md
+          echo "" >> data/creators-report.md
+          echo "**To find creators manually:**" >> data/creators-report.md
+          echo "1. Search these queries on Twitter" >> data/creators-report.md
+          echo "2. Check profiles for 10K-100K followers" >> data/creators-report.md
+          echo "3. Verify they have no product/shop link" >> data/creators-report.md
+          echo "4. Add to data/pipeline.csv" >> data/creators-report.md
+
+      - name: Save report
+        uses: actions/upload-artifact@v4
+        with:
+          name: creators-report
+          path: data/creators-report.md

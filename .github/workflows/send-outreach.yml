@@ -1,0 +1,65 @@
+name: Send Outreach DMs
+
+on:
+  schedule:
+    - cron: '0 14 * * *'  # Daily at 2 PM UTC
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no actual sending)'
+        required: false
+        default: 'true'
+        type: boolean
+
+jobs:
+  send-dms:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate personalized DMs
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          echo "## DM Outreach Log" > data/dm-log.md
+          echo "Date: $(date -u)" >> data/dm-log.md
+          echo "" >> data/dm-log.md
+          
+          # Read creators from pipeline
+          if [ ! -f data/pipeline.csv ]; then
+            echo "No creators found. Run find-creators workflow first."
+            exit 0
+          fi
+          
+          # Generate personalized DM for each creator
+          while IFS=, read -r name handle followers niche status; do
+            if [ "$status" = "new" ]; then
+              echo "Generating DM for @$handle..." >> data/dm-log.md
+              
+              DM=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+                -H "Authorization: Bearer $GROQ_API_KEY" \
+                -H "Content-Type: application/json" \
+                -d "{
+                  \"model\": \"llama-3.3-70b-versatile\",
+                  \"messages\": [
+                    {\"role\": \"system\", \"content\": \"You are a friendly business developer. Write short, personal DMs. No spam, no links. Keep under 200 characters.\"},
+                    {\"role\": \"user\", \"content\": \"Write a DM to @${handle}, a ${niche} creator with ${followers} followers. Offer to create and launch a digital product for them, splitting profits 50/50. Make it personal and genuine.\"}
+                  ],
+                  \"temperature\": 0.8
+                }" | jq -r '.choices[0].message.content')
+              
+              echo "To: @$handle" >> data/dm-log.md
+              echo "DM: $DM" >> data/dm-log.md
+              echo "---" >> data/dm-log.md
+            fi
+          done < <(tail -n +2 data/pipeline.csv)
+          
+          echo "" >> data/dm-log.md
+          echo "**Dry run: DMs generated but not sent.**" >> data/dm-log.md
+          echo "To send manually, copy DMs above and send via Twitter." >> data/dm-log.md
+
+      - name: Save DM log
+        uses: actions/upload-artifact@v4
+        with:
+          name: dm-log
+          path: data/dm-log.md

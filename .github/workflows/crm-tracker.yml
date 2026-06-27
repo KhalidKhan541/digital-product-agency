@@ -1,0 +1,47 @@
+name: CRM Tracker
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Daily at 8 AM UTC
+  workflow_dispatch:
+
+jobs:
+  track:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate CRM report
+        run: |
+          echo "# CRM Dashboard" > data/crm-report.md
+          echo "Updated: $(date -u)" >> data/crm-report.md
+          echo "" >> data/crm-report.md
+          
+          if [ -f data/pipeline.csv ]; then
+            echo "## Pipeline Status" >> data/crm-report.md
+            echo "" >> data/crm-report.md
+            echo "| Name | Handle | Followers | Niche | Status |" >> data/crm-report.md
+            echo "|------|--------|-----------|-------|--------|" >> data/crm-report.md
+            tail -n +2 data/pipeline.csv >> data/crm-report.md
+            echo "" >> data/crm-report.md
+            
+            # Count by status
+            NEW=$(grep -c ",new" data/pipeline.csv || echo "0")
+            CONTACTED=$(grep -c ",contacted" data/pipeline.csv || echo "0")
+            INTERESTED=$(grep -c ",interested" data/pipeline.csv || echo "0")
+            LAUNCHED=$(grep -c ",launched" data/pipeline.csv || echo "0")
+            
+            echo "## Summary" >> data/crm-report.md
+            echo "- New: $NEW" >> data/crm-report.md
+            echo "- Contacted: $CONTACTED" >> data/crm-report.md
+            echo "- Interested: $INTERESTED" >> data/crm-report.md
+            echo "- Launched: $LAUNCHED" >> data/crm-report.md
+          else
+            echo "No pipeline data yet. Add creators to data/pipeline.csv" >> data/crm-report.md
+          fi
+
+      - name: Save report
+        uses: actions/upload-artifact@v4
+        with:
+          name: crm-report
+          path: data/crm-report.md

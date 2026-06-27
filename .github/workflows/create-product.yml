@@ -1,0 +1,117 @@
+name: Create Digital Product
+
+on:
+  workflow_dispatch:
+    inputs:
+      creator_name:
+        description: 'Creator name'
+        required: true
+      creator_handle:
+        description: 'Creator Twitter handle'
+        required: true
+      product_type:
+        description: 'Product type (ebook, template, course, guide)'
+        required: true
+        default: 'ebook'
+      niche:
+        description: 'Creator niche (fitness, finance, tech, etc)'
+        required: true
+
+jobs:
+  create-product:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate product with Groq
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          CREATOR="${{ github.event.inputs.creator_name }}"
+          HANDLE="${{ github.event.inputs.creator_handle }}"
+          TYPE="${{ github.event.inputs.product_type }}"
+          NICHE="${{ github.event.inputs.niche }}"
+          
+          echo "## Creating $TYPE for $CREATOR ($NICHE)" > data/product.md
+          echo "Date: $(date -u)" >> data/product.md
+          echo "" >> data/product.md
+          
+          # Generate product outline
+          OUTLINE=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"model\": \"llama-3.3-70b-versatile\",
+              \"messages\": [
+                {\"role\": \"system\", \"content\": \"You are a digital product creator. Create detailed outlines for ebooks, guides, and templates. Output in markdown.\"},
+                {\"role\": \"user\", \"content\": \"Create a detailed outline for a ${TYPE} about ${NICHE} for @${HANDLE}'s audience. Include: title, subtitle, 5-7 chapters with descriptions, key takeaways, and call-to-action. Make it valuable and actionable.\"}
+              ],
+              \"temperature\": 0.7
+            }" | jq -r '.choices[0].message.content')
+          
+          echo "### Outline" >> data/product.md
+          echo "$OUTLINE" >> data/product.md
+          echo "" >> data/product.md
+          
+          # Generate chapter 1 content
+          CONTENT=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"model\": \"llama-3.3-70b-versatile\",
+              \"messages\": [
+                {\"role\": \"system\", \"content\": \"You are an expert content writer. Write engaging, actionable content in markdown format.\"},
+                {\"role\": \"user\", \"content\": \"Write the first chapter/introduction for a ${TYPE} about ${NICHE}. Make it engaging, include a story, and provide immediate value. 1000-1500 words.\"}
+              ],
+              \"temperature\": 0.8
+            }" | jq -r '.choices[0].message.content')
+          
+          echo "### Chapter 1" >> data/product.md
+          echo "$CONTENT" >> data/product.md
+          echo "" >> data/product.md
+          
+          # Generate landing page copy
+          LANDING=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"model\": \"llama-3.3-70b-versatile\",
+              \"messages\": [
+                {\"role\": \"system\", \"content\": \"You are a copywriter. Write high-converting landing page copy.\"},
+                {\"role\": \"user\", \"content\": \"Write landing page copy for a ${TYPE} about ${NICHE}. Include: headline, subheadline, 3 bullet points, social proof section, and CTA. Keep it short and punchy.\"}
+              ],
+              \"temperature\": 0.8
+            }" | jq -r '.choices[0].message.content')
+          
+          echo "### Landing Page Copy" >> data/product.md
+          echo "$LANDING" >> data/product.md
+          echo "" >> data/product.md
+          
+          # Generate email sequence
+          EMAILS=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"model\": \"llama-3.3-70b-versatile\",
+              \"messages\": [
+                {\"role\": \"system\", \"content\": \"You are an email marketing expert. Write high-converting email sequences.\"},
+                {\"role\": \"user\", \"content\": \"Write a 5-email launch sequence for a ${TYPE} about ${NICHE}. Include: welcome email, value email, story email, urgency email, last chance email. Subject lines and body for each.\"}
+              ],
+              \"temperature\": 0.8
+            }" | jq -r '.choices[0].message.content')
+          
+          echo "### Email Launch Sequence" >> data/product.md
+          echo "$EMAILS" >> data/product.md
+          
+          echo "Product created! Download from artifacts."
+
+      - name: Save product
+        uses: actions/upload-artifact@v4
+        with:
+          name: digital-product
+          path: data/product.md
+
+      - name: Create delivery email
+        run: |
+          echo "Product ready for ${{ github.event.inputs.creator_name }}!"
+          echo "Download the product artifact and deliver manually."

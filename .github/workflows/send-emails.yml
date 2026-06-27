@@ -1,0 +1,101 @@
+name: Email Launch Sequence
+
+on:
+  workflow_dispatch:
+    inputs:
+      recipient_email:
+        description: 'Creator email'
+        required: true
+      recipient_name:
+        description: 'Creator name'
+        required: true
+      product_name:
+        description: 'Product name'
+        required: true
+      launch_day:
+        description: 'Launch day (YYYY-MM-DD)'
+        required: true
+
+jobs:
+  send-emails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Send email sequence
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          SMTP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          SENDER_EMAIL: khalid.khan46571@gmail.com
+        run: |
+          RECIPIENT="${{ github.event.inputs.recipient_name }}"
+          EMAIL="${{ github.event.inputs.recipient_email }}"
+          PRODUCT="${{ github.event.inputs.product_name }}"
+          LAUNCH="${{ github.event.inputs.launch_day }}"
+          
+          echo "## Email Log" > data/email-log.md
+          echo "Date: $(date -u)" >> data/email-log.md
+          echo "" >> data/email-log.md
+          
+          # Generate email content with Groq
+          EMAIL_CONTENT=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"model\": \"llama-3.3-70b-versatile\",
+              \"messages\": [
+                {\"role\": \"system\", \"content\": \"You are an email marketing expert. Write professional, friendly business emails. Subject line on first line, then blank line, then body.\"},
+                {\"role\": \"user\", \"content\": \"Write 5 launch emails for ${RECIPIENT} about their new product '${PRODUCT}'. Launch date: ${LAUNCH}. Emails: 1) Welcome & product ready 2) Value showcase 3) Success story 4) Urgency (2 days left) 5) Last chance. Subject and body for each, separated by ---\"}
+              ],
+              \"temperature\": 0.8
+            }" | jq -r '.choices[0].message.content')
+          
+          echo "$EMAIL_CONTENT" > /tmp/emails.txt
+          echo "Emails generated:" >> data/email-log.md
+          echo "$EMAIL_CONTENT" >> data/email-log.md
+          echo "" >> data/email-log.md
+          
+          # Send first email immediately using Python SMTP
+          python3 << 'EOF'
+          import smtplib
+          from email.mime.text import MIMEText
+          from email.mime.multipart import MIMEMultipart
+          import os
+          
+          sender = os.environ['SENDER_EMAIL']
+          password = os.environ['SMTP_PASSWORD']
+          recipient = "$EMAIL"
+          
+          # Read generated emails
+          with open('/tmp/emails.txt', 'r') as f:
+              content = f.read()
+          
+          # Extract first email
+          parts = content.split('---')
+          if parts:
+              first_email = parts[0].strip()
+              lines = first_email.split('\n')
+              subject = lines[0] if lines else "Your product is ready!"
+              body = '\n'.join(lines[2:]) if len(lines) > 2 else first_email
+              
+              msg = MIMEMultipart()
+              msg['From'] = sender
+              msg['To'] = recipient
+              msg['Subject'] = subject
+              msg.attach(MIMEText(body, 'plain'))
+              
+              try:
+                  with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+                      server.login(sender, password)
+                      server.send_message(msg)
+                  print(f"Email sent to {recipient}")
+              except Exception as e:
+                  print(f"Failed to send: {e}")
+                  print("Note: You need to enable 2FA and create App Password in Google Account settings.")
+          EOF
+
+      - name: Save log
+        uses: actions/upload-artifact@v4
+        with:
+          name: email-log
+          path: data/email-log.md
