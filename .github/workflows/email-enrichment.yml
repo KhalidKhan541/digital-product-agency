@@ -1,0 +1,35 @@
+name: Email Enrichment - Find Creator Emails
+
+on:
+  schedule:
+    - cron: '0 5 * * *'  # 10 AM PKT daily
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  enrich-emails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install groq requests
+
+      - name: Run email enrichment
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: python scripts/email_enrichment.py
+
+      - name: Commit updated pipeline
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/pipeline.csv
+          git diff --staged --quiet || git commit -m "chore: enrich creator emails [skip ci]"
+          git push
