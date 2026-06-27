@@ -1,0 +1,46 @@
+name: Auto Email Sender
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Recipient email address'
+        required: true
+        type: string
+      name:
+        description: 'Recipient name'
+        required: true
+        type: string
+      product:
+        description: 'Product name'
+        required: true
+        type: string
+      number:
+        description: 'Phone number'
+        required: true
+        type: string
+
+jobs:
+  send-email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run email sender script
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+          RECIPIENT_EMAIL: ${{ inputs.email }}
+          RECIPIENT_NAME: ${{ inputs.name }}
+          PRODUCT_NAME: ${{ inputs.product }}
+          PHONE_NUMBER: ${{ inputs.number }}
+        run: python scripts/auto_email_sender.py
