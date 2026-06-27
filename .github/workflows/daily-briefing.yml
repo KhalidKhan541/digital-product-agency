@@ -1,0 +1,225 @@
+name: Daily Briefing
+
+on:
+  schedule:
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  briefing:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Analyze pipeline
+        id: analyze
+        run: |
+          if [ ! -f data/pipeline.csv ]; then
+            echo "error=true" >> "$GITHUB_OUTPUT"
+            echo "## ⚠️ No Pipeline Data" >> "$GITHUB_STEP_SUMMARY"
+            echo "No data/pipeline.csv found. Add creators first." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          NEW=$(awk -F',' '$5=="new"' data/pipeline.csv | wc -l)
+          CONTACTED=$(awk -F',' '$5=="contacted"' data/pipeline.csv | wc -l)
+          INTERESTED=$(awk -F',' '$5=="interested"' data/pipeline.csv | wc -l)
+          LAUNCHED=$(awk -F',' '$5=="launched"' data/pipeline.csv | wc -l)
+          TOTAL=$((NEW + CONTACTED + INTERESTED + LAUNCHED))
+
+          NEW_LIST=$(awk -F',' '$5=="new" {printf "- **%s** (%s) - %s\n  > %s\n", $1, $2, $4, $6}' data/pipeline.csv)
+          CONTACTED_LIST=$(awk -F',' '$5=="contacted" {printf "- **%s** (%s) - %s\n  > %s\n", $1, $2, $4, $6}' data/pipeline.csv)
+          INTERESTED_LIST=$(awk -F',' '$5=="interested" {printf "- **%s** (%s) - %s\n  > %s\n", $1, $2, $4, $6}' data/pipeline.csv)
+          LAUNCHED_LIST=$(awk -F',' '$5=="launched" {printf "- **%s** (%s) - %s\n  > %s\n", $1, $2, $4, $6}' data/pipeline.csv)
+
+          echo "new_count=$NEW" >> "$GITHUB_OUTPUT"
+          echo "contacted_count=$CONTACTED" >> "$GITHUB_OUTPUT"
+          echo "interested_count=$INTERESTED" >> "$GITHUB_OUTPUT"
+          echo "launched_count=$LAUNCHED" >> "$GITHUB_OUTPUT"
+          echo "total=$TOTAL" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "new_list<<EOF"
+            echo "$NEW_LIST"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "contacted_list<<EOF"
+            echo "$CONTACTED_LIST"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "interested_list<<EOF"
+            echo "$INTERESTED_LIST"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "launched_list<<EOF"
+            echo "$LAUNCHED_LIST"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Generate action items with Groq
+        if: steps.analyze.outputs.error != 'true'
+        id: groq
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          if [ -z "$GROQ_API_KEY" ]; then
+            echo "## ⚠️ Missing GROQ_API_KEY" >> "$GITHUB_STEP_SUMMARY"
+            echo "Add GROQ_API_KEY to repository secrets." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          PROMPT=$(cat <<PROMPT_EOF
+          You are a workflow assistant for a digital product agency. Based on today's pipeline, generate 3-5 specific action items. Be concise and actionable.
+
+          Pipeline stats:
+          - New creators needing outreach: ${{ steps.analyze.outputs.new_count }}
+          - Contacted, awaiting response: ${{ steps.analyze.outputs.contacted_count }}
+          - Interested, ready to work with: ${{ steps.analyze.outputs.interested_count }}
+          - Launched products: ${{ steps.analyze.outputs.launched_count }}
+
+          New creators:
+          ${{ steps.analyze.outputs.new_list }}
+
+          Contacted creators:
+          ${{ steps.analyze.outputs.contacted_list }}
+
+          Interested creators:
+          ${{ steps.analyze.outputs.interested_list }}
+
+          Launched creators:
+          ${{ steps.analyze.outputs.launched_list }}
+
+          Return ONLY a markdown bullet list of action items. No preamble, no header.
+          PROMPT_EOF
+          )
+
+          RESPONSE=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -n \
+              --arg model "llama-3.3-70b-versatile" \
+              --arg prompt "$PROMPT" \
+              '{
+                model: $model,
+                messages: [{role: "user", content: $prompt}],
+                temperature: 0.5,
+                max_tokens: 1024
+              }')")
+
+          TASKS=$(echo "$RESPONSE" | jq -r '.choices[0].message.content // "Failed to generate tasks"')
+
+          {
+            echo "tasks<<EOF"
+            echo "$TASKS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write summary
+        if: steps.analyze.outputs.error != 'true'
+        run: |
+          {
+            echo "# 📋 Daily Briefing"
+            echo ""
+            echo "**Date:** $(date -u +'%A, %B %d, %Y')"
+            echo ""
+            echo "## 📊 Stats"
+            echo ""
+            echo "| Status | Count |"
+            echo "|--------|-------|"
+            echo "| 🔵 New | ${{ steps.analyze.outputs.new_count }} |"
+            echo "| 🟡 Contacted | ${{ steps.analyze.outputs.contacted_count }} |"
+            echo "| 🟢 Interested | ${{ steps.analyze.outputs.interested_count }} |"
+            echo "| ✅ Launched | ${{ steps.analyze.outputs.launched_count }} |"
+            echo "| **Total** | **${{ steps.analyze.outputs.total }}** |"
+            echo ""
+            echo "## ✅ Today's Tasks"
+            echo ""
+            echo "${{ steps.groq.outputs.tasks }}"
+            echo ""
+            echo "## 🔄 Pipeline Status"
+            echo ""
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -n "${{ steps.analyze.outputs.new_list }}" ]; then
+            {
+              echo "### 🔵 Need Outreach (${{ steps.analyze.outputs.new_count }})"
+              echo "${{ steps.analyze.outputs.new_list }}"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -n "${{ steps.analyze.outputs.interested_list }}" ]; then
+            {
+              echo "### 🟢 Ready to Work With (${{ steps.analyze.outputs.interested_count }})"
+              echo "${{ steps.analyze.outputs.interested_list }}"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+          if [ -n "${{ steps.analyze.outputs.launched_list }}" ]; then
+            {
+              echo "### ✅ Launched (${{ steps.analyze.outputs.launched_count }})"
+              echo "${{ steps.analyze.outputs.launched_list }}"
+              echo ""
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Create GitHub Issue
+        if: steps.analyze.outputs.error != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          DATE=$(date -u +'%Y-%m-%d')
+
+          # Build issue body safely
+          {
+            echo "## 📊 Stats"
+            echo ""
+            echo "| Status | Count |"
+            echo "|--------|-------|"
+            echo "| 🔵 New | ${{ steps.analyze.outputs.new_count }} |"
+            echo "| 🟡 Contacted | ${{ steps.analyze.outputs.contacted_count }} |"
+            echo "| 🟢 Interested | ${{ steps.analyze.outputs.interested_count }} |"
+            echo "| ✅ Launched | ${{ steps.analyze.outputs.launched_count }} |"
+            echo "| **Total** | **${{ steps.analyze.outputs.total }}** |"
+            echo ""
+            echo "## ✅ Today's Tasks"
+            echo ""
+            echo "${{ steps.groq.outputs.tasks }}"
+            echo ""
+            echo "## 🔄 Pipeline Status"
+            echo ""
+            echo "### 🔵 Need Outreach (${{ steps.analyze.outputs.new_count }})"
+            echo "${{ steps.analyze.outputs.new_list }}"
+            echo ""
+            echo "### 🟢 Ready to Work With (${{ steps.analyze.outputs.interested_count }})"
+            echo "${{ steps.analyze.outputs.interested_list }}"
+            echo ""
+            echo "### ✅ Launched (${{ steps.analyze.outputs.launched_count }})"
+            echo "${{ steps.analyze.outputs.launched_list }}"
+            echo ""
+            echo "---"
+            echo "*Generated by Daily Briefing workflow*"
+          } > /tmp/issue_body.md
+
+          gh issue create \
+            --title "Daily Briefing - $DATE" \
+            --body-file /tmp/issue_body.md \
+            --label "daily-briefing" 2>/dev/null || \
+          gh issue create \
+            --title "Daily Briefing - $DATE" \
+            --body-file /tmp/issue_body.md
+
+          {
+            echo "## ✅ Issue Created"
+            echo "Issue \`Daily Briefing - $DATE\` created."
+          } >> "$GITHUB_STEP_SUMMARY"

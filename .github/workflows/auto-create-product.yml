@@ -1,0 +1,193 @@
+name: Auto Create Product
+
+on:
+  workflow_dispatch:
+    inputs:
+      creator_name:
+        description: "Creator's full name"
+        required: true
+        type: string
+      creator_handle:
+        description: "Creator's handle (used for folder name)"
+        required: true
+        type: string
+      product_type:
+        description: "Type of product to create"
+        required: true
+        type: choice
+        options:
+          - ebook
+          - template
+          - course
+          - planner
+          - checklist
+      niche:
+        description: "Creator's niche"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  create-product:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate inputs
+        run: |
+          echo "Creating product for: ${{ inputs.creator_name }}"
+          echo "Handle: ${{ inputs.creator_handle }}"
+          echo "Product type: ${{ inputs.product_type }}"
+          echo "Niche: ${{ inputs.niche }}"
+
+      - name: Create product directory
+        run: |
+          mkdir -p "data/products/${{ inputs.creator_handle }}"
+
+      - name: Generate product content
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          PRODUCT_DIR="data/products/${{ inputs.creator_handle }}"
+          CREATOR="${{ inputs.creator_name }}"
+          HANDLE="${{ inputs.creator_handle }}"
+          TYPE="${{ inputs.product_type }}"
+          NICHE="${{ inputs.niche }}"
+
+          call_groq() {
+            local prompt="$1"
+            curl -s "https://api.groq.com/openai/v1/chat/completions" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $GROQ_API_KEY" \
+              -d "{
+                \"model\": \"llama-3.3-70b-versatile\",
+                \"messages\": [{\"role\": \"user\", \"content\": $(echo "$prompt" | jq -Rs .)}],
+                \"temperature\": 0.7,
+                \"max_tokens\": 4000
+              }" | jq -r '.choices[0].message.content'
+          }
+
+          echo "Generating product.md..."
+
+          cat > product_prompt.txt << 'PROMPT_END'
+          You are a world-class digital product creator. Generate a complete, professional ${TYPE} product about "${NICHE}" for creator "${CREATOR}".
+
+          Create a comprehensive, actionable ${TYPE} that delivers real value. Include:
+          - A compelling title
+          - Table of contents or outline
+          - Complete, usable content for each section
+          - Practical tips, strategies, and actionable advice
+          - Real examples and templates where appropriate
+          - Professional formatting with headers, lists, and clear structure
+
+          Make it 2000-3000 words of substantive content. This should be ready for a customer to use immediately.
+          PROMPT_END
+
+          PRODUCT_CONTENT=$(curl -s "https://api.groq.com/openai/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -d "{
+              \"model\": \"llama-3.3-70b-versatile\",
+              \"messages\": [{\"role\": \"user\", \"content\": \"You are a world-class digital product creator. Generate a complete, professional ${TYPE} product about \\\"${NICHE}\\\" for creator \\\"${CREATOR}\\\". Create a comprehensive, actionable ${TYPE} that delivers real value. Include a compelling title, table of contents, complete usable content for each section, practical tips and actionable advice, real examples, and professional formatting. Make it 2000-3000 words of substantive content ready for immediate use.\"}],
+              \"temperature\": 0.7,
+              \"max_tokens\": 4000
+            }" | jq -r '.choices[0].message.content')
+
+          echo "$PRODUCT_CONTENT" > "$PRODUCT_DIR/product.md"
+          echo "product.md generated"
+
+          echo "Generating landing-page.md..."
+
+          LANDING_CONTENT=$(curl -s "https://api.groq.com/openai/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -d "{
+              \"model\": \"llama-3.3-70b-versatile\",
+              \"messages\": [{\"role\": \"user\", \"content\": \"Create a high-converting landing page copy for a ${TYPE} product about \\\"${NICHE}\\\" by creator \\\"${CREATOR}\\\". Include: headline, subheadline, hero section, problem/pain points, solution, features and benefits, social proof placeholder, pricing section, FAQ, and call to action. Make it persuasive and conversion-focused. Write 800-1200 words.\"}],
+              \"temperature\": 0.7,
+              \"max_tokens\": 3000
+            }" | jq -r '.choices[0].message.content')
+
+          echo "$LANDING_CONTENT" > "$PRODUCT_DIR/landing-page.md"
+          echo "landing-page.md generated"
+
+          echo "Generating email-sequence.md..."
+
+          EMAIL_CONTENT=$(curl -s "https://api.groq.com/openai/v1/chat/completions" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -d "{
+              \"model\": \"llama-3.3-70b-versatile\",
+              \"messages\": [{\"role\": \"user\", \"content\": \"Create a 5-email launch sequence for a ${TYPE} product about \\\"${NICHE}\\\" by creator \\\"${CREATOR}\\\". Include: email 1 - launch announcement, email 2 - problem/solution, email 3 - social proof, email 4 - urgency/last chance, email 5 - final reminder. Each email needs subject line and body. Write 200-300 words per email.\"}],
+              \"temperature\": 0.7,
+              \"max_tokens\": 3000
+            }" | jq -r '.choices[0].message.content')
+
+          echo "$EMAIL_CONTENT" > "$PRODUCT_DIR/email-sequence.md"
+          echo "email-sequence.md generated"
+
+      - name: Update pipeline.csv
+        run: |
+          PIPELINE="data/pipeline.csv"
+          HANDLE="${{ inputs.creator_handle }}"
+          CREATOR="${{ inputs.creator_name }}"
+          TYPE="${{ inputs.product_type }}"
+          NICHE="${{ inputs.niche }}"
+          STATUS="building"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          if [ ! -f "$PIPELINE" ]; then
+            echo "creator_name,creator_handle,product_type,niche,status,created_at,updated_at" > "$PIPELINE"
+          fi
+
+          if grep -q "$HANDLE" "$PIPELINE" 2>/dev/null; then
+            sed -i "s|.*$HANDLE.*|${CREATOR},${HANDLE},${TYPE},${NICHE},${STATUS},${TIMESTAMP},${TIMESTAMP}|" "$PIPELINE"
+          else
+            echo "${CREATOR},${HANDLE},${TYPE},${NICHE},${STATUS},${TIMESTAMP},${TIMESTAMP}" >> "$PIPELINE"
+          fi
+
+          echo "Pipeline updated: $HANDLE -> $STATUS"
+
+      - name: Create product summary
+        run: |
+          PRODUCT_DIR="data/products/${{ inputs.creator_handle }}"
+          echo "## Product Created Successfully" > "$PRODUCT_DIR/SUMMARY.md"
+          echo "" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "### Creator" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "- **Name:** ${{ inputs.creator_name }}" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "- **Handle:** @${{ inputs.creator_handle }}" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "### Product Details" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "- **Type:** ${{ inputs.product_type }}" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "- **Niche:** ${{ inputs.niche }}" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "- **Status:** Building" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "- **Created:** $(date -u +"%Y-%m-%d %H:%M UTC")" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "### Generated Files" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "- product.md - Complete product content" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "- landing-page.md - Sales page copy" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "- email-sequence.md - 5-email launch sequence" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "### Product Preview" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "\`\`\`" >> "$PRODUCT_DIR/SUMMARY.md"
+          head -50 "$PRODUCT_DIR/product.md" >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "..." >> "$PRODUCT_DIR/SUMMARY.md"
+          echo "\`\`\`" >> "$PRODUCT_DIR/SUMMARY.md"
+
+      - name: Upload product artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: product-${{ inputs.creator_handle }}
+          path: data/products/${{ inputs.creator_handle }}/
+          retention-days: 30
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add data/
+          git commit -m "feat: auto-create ${{ inputs.product_type }} for @${{ inputs.creator_handle }}"
+          git push

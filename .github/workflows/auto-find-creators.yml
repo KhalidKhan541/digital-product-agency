@@ -1,0 +1,66 @@
+name: Auto Find Creators
+
+on:
+  schedule:
+    - cron: '0 8 * * 1'  # Every Monday at 8 AM UTC
+  workflow_dispatch:
+
+jobs:
+  find-creators:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Search for new creators
+        env:
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        run: |
+          echo "## Weekly Creator Search" > data/search-report.md
+          echo "Date: $(date -u)" >> data/search-report.md
+          echo "" >> data/search-report.md
+          
+          # Generate search queries
+          QUERIES=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "llama-3.3-70b-versatile",
+              "messages": [
+                {"role": "system", "content": "Output JSON only. No explanation."},
+                {"role": "user", "content": "Generate 10 Twitter search queries to find content creators with 10K-100K followers who have no digital products. Focus on fitness, finance, tech, lifestyle, marketing niches. Output as JSON array."}
+              ],
+              "temperature": 0.7
+            }' | jq -r '.choices[0].message.content')
+          
+          echo "### Search Queries" >> data/search-report.md
+          echo "$QUERIES" >> data/search-report.md
+          echo "" >> data/search-report.md
+          
+          # Generate potential creators list
+          CREATORS=$(curl -s https://api.groq.com/openai/v1/chat/completions \
+            -H "Authorization: Bearer $GROQ_API_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "model": "llama-3.3-70b-versatile",
+              "messages": [
+                {"role": "system", "content": "Output JSON only. No explanation."},
+                {"role": "user", "content": "Generate 10 fictional but realistic content creators who might exist on Twitter. Include: name, handle, followers (10K-100K), niche, why they would be good candidates for digital products. Make them diverse across fitness, finance, tech, lifestyle, marketing."}
+              ],
+              "temperature": 0.8
+            }' | jq -r '.choices[0].message.content')
+          
+          echo "### Potential Creators" >> data/search-report.md
+          echo "$CREATORS" >> data/search-report.md
+          echo "" >> data/search-report.md
+          
+          echo "### Next Steps" >> data/search-report.md
+          echo "1. Search Twitter using the queries above" >> data/search-report.md
+          echo "2. Verify creators have no products" >> data/search-report.md
+          echo "3. Add to data/pipeline.csv" >> data/search-report.md
+          echo "4. Run generate-dms workflow" >> data/search-report.md
+
+      - name: Save report
+        uses: actions/upload-artifact@v4
+        with:
+          name: creator-search-report
+          path: data/search-report.md

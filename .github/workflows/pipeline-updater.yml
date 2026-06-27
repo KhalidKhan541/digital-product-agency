@@ -1,0 +1,105 @@
+name: Pipeline Updater
+
+on:
+  workflow_dispatch:
+    inputs:
+      creator_handle:
+        description: "Creator handle to update"
+        required: true
+        type: string
+      new_status:
+        description: "New status for the creator"
+        required: true
+        type: choice
+        options:
+          - new
+          - contacted
+          - interested
+          - negotiating
+          - building
+          - launched
+          - dead
+      notes:
+        description: "Optional notes"
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  update-pipeline:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Update creator status
+        run: |
+          CREATOR="${{ inputs.creator_handle }}"
+          STATUS="${{ inputs.new_status }}"
+          NOTES="${{ inputs.notes }}"
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+          FILE="data/pipeline.csv"
+
+          if [ ! -f "$FILE" ]; then
+            echo "Error: $FILE not found"
+            exit 1
+          fi
+
+          # Check if creator exists
+          if ! grep -q "^${CREATOR}," "$FILE"; then
+            echo "Error: Creator '${CREATOR}' not found in $FILE"
+            exit 1
+          fi
+
+          # Escape commas in notes for CSV safety
+          ESCAPED_NOTES=$(echo "$NOTES" | sed 's/,/;/g')
+
+          # Update the status column (2) and notes column (3) for matching creator
+          sed -i "s|^${CREATOR},\([^,]*\),\(.*\)$|${CREATOR},${STATUS},${ESCAPED_NOTES}|" "$FILE"
+
+          echo "Updated ${CREATOR}: status=${STATUS}, notes=${NOTES:-<none>}, timestamp=${TIMESTAMP}"
+
+          # Show the updated line for confirmation
+          grep "^${CREATOR}," "$FILE"
+
+      - name: Commit and push changes
+        run: |
+          CREATOR="${{ inputs.creator_handle }}"
+          STATUS="${{ inputs.new_status }}"
+          NOTES="${{ inputs.notes }}"
+          ACTOR="${{ github.actor }}"
+
+          git config user.name "$ACTOR"
+          git config user.email "${ACTOR}@users.noreply.github.com"
+
+          git add data/pipeline.csv
+
+          # Only commit if there are staged changes
+          if git diff --cached --quiet; then
+            echo "No changes detected in pipeline.csv"
+            exit 0
+          fi
+
+          COMMIT_MSG="pipeline: update ${CREATOR} status to ${STATUS}"
+          if [ -n "$NOTES" ]; then
+            COMMIT_MSG="${COMMIT_MSG} (${NOTES})"
+          fi
+
+          git commit -m "$COMMIT_MSG"
+          git push
+
+          echo "Changes pushed to repository"
+
+      - name: Log update
+        run: |
+          echo "=== Pipeline Update Summary ==="
+          echo "Creator:  ${{ inputs.creator_handle }}"
+          echo "Status:   ${{ inputs.new_status }}"
+          echo "Notes:    ${{ inputs.notes || '<none>' }}"
+          echo "Actor:    ${{ github.actor }}"
+          echo "Run:      ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "==============================="

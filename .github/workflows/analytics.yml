@@ -1,0 +1,276 @@
+name: Weekly Analytics Dashboard
+
+on:
+  schedule:
+    - cron: '0 9 * * 0'  # Every Sunday at 9 AM UTC
+  workflow_dispatch:
+
+jobs:
+  analytics:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate analytics report
+        run: |
+          REPORT_DATE=$(date -u +%Y-%m-%d)
+          WEEK_NUM=$(date -u +%V)
+          REPORT_PATH="data/reports/weekly-${REPORT_DATE}.md"
+          CHART_PATH="data/reports/weekly-${REPORT_DATE}-charts.json"
+
+          mkdir -p data/reports
+
+          # ── Pipeline metrics ──────────────────────────────────────
+          if [ -f data/pipeline.csv ]; then
+            TOTAL=$(tail -n +2 data/pipeline.csv | wc -l | tr -d ' ')
+            NEW=$(grep -c ",new" data/pipeline.csv || echo 0)
+            CONTACTED=$(grep -c ",contacted" data/pipeline.csv || echo 0)
+            INTERESTED=$(grep -c ",interested" data/pipeline.csv || echo 0)
+            RESPONDED=$(grep -c ",responded" data/pipeline.csv || echo 0)
+            LAUNCHED=$(grep -c ",launched" data/pipeline.csv || echo 0)
+
+            if [ "$CONTACTED" -gt 0 ]; then
+              RESPONSE_RATE=$(echo "scale=1; $RESPONDED * 100 / $CONTACTED" | bc)
+            else
+              RESPONSE_RATE="0"
+            fi
+
+            if [ "$CONTACTED" -gt 0 ]; then
+              CONVERSION_RATE=$(echo "scale=1; $LAUNCHED * 100 / $CONTACTED" | bc)
+            else
+              CONVERSION_RATE="0"
+            fi
+
+            REVENUE_ESTIMATE=$(echo "$LAUNCHED * 497" | bc)
+
+            NICHE_DATA=$(tail -n +2 data/pipeline.csv | awk -F',' '{print $4}' | sort | uniq -c | sort -rn)
+
+            AVG_FOLLOWERS=$(tail -n +2 data/pipeline.csv | awk -F',' '{sum+=$3; count++} END {if(count>0) printf "%.0f", sum/count; else print "0"}')
+          else
+            TOTAL=0; NEW=0; CONTACTED=0; INTERESTED=0; RESPONDED=0; LAUNCHED=0
+            RESPONSE_RATE="0"; CONVERSION_RATE="0"; REVENUE_ESTIMATE=0
+            NICHE_DATA=""
+            AVG_FOLLOWERS=0
+          fi
+
+          # ── Email metrics ─────────────────────────────────────────
+          EMAIL_SENT=0
+          EMAIL_OPENED=0
+          EMAIL_REPLIED=0
+          if [ -f data/email-log.md ]; then
+            EMAIL_SENT=$(grep -ci "sent\|emailed\|delivered" data/email-log.md || echo 0)
+            EMAIL_OPENED=$(grep -ci "opened" data/email-log.md || echo 0)
+            EMAIL_REPLIED=$(grep -ci "replied\|responded" data/email-log.md || echo 0)
+          fi
+
+          # ── Previous week data for comparison ──────────────────────
+          PREV_WEEK=$(date -u -d "7 days ago" +%Y-%m-%d 2>/dev/null || date -u -v-7d +%Y-%m-%d 2>/dev/null || echo "")
+          PREV_TOTAL=0; PREV_LAUNCHED=0; PREV_REVENUE=0
+          if [ -n "$PREV_WEEK" ] && [ -f "data/reports/weekly-${PREV_WEEK}.md" ]; then
+            PREV_TOTAL=$(grep -oP 'Total Creators.*\|\s*\K\d+' "data/reports/weekly-${PREV_WEEK}.md" || echo 0)
+            PREV_LAUNCHED=$(grep -oP 'Products Launched.*\|\s*\K\d+' "data/reports/weekly-${PREV_WEEK}.md" || echo 0)
+            PREV_REVENUE=$(grep -oP 'Revenue Estimate.*\|\s*\$\K[\d,]+' "data/reports/weekly-${PREV_WEEK}.md" || echo 0)
+            PREV_REVENUE=$(echo "$PREV_REVENUE" | tr -d ',')
+          fi
+
+          DELTA_TOTAL=$((TOTAL - PREV_TOTAL))
+          DELTA_LAUNCHED=$((LAUNCHED - PREV_LAUNCHED))
+          DELTA_REVENUE=$((REVENUE_ESTIMATE - PREV_REVENUE))
+
+          delta_total_label=""
+          delta_launched_label=""
+          delta_revenue_label=""
+          if [ "$PREV_TOTAL" -gt 0 ]; then
+            if [ "$DELTA_TOTAL" -gt 0 ]; then delta_total_label=" (+${DELTA_TOTAL})"; elif [ "$DELTA_TOTAL" -lt 0 ]; then delta_total_label=" (${DELTA_TOTAL})"; fi
+            if [ "$DELTA_LAUNCHED" -gt 0 ]; then delta_launched_label=" (+${DELTA_LAUNCHED})"; elif [ "$DELTA_LAUNCHED" -lt 0 ]; then delta_launched_label=" (${DELTA_LAUNCHED})"; fi
+            if [ "$DELTA_REVENUE" -gt 0 ]; then delta_revenue_label=" (+\$${DELTA_REVENUE})"; elif [ "$DELTA_REVENUE" -lt 0 ]; then delta_revenue_label=" (-\$${DELTA_REVENUE})"; fi
+          fi
+
+          # ── Build chart JSON ───────────────────────────────────────
+          cat > "$CHART_PATH" <<EOF
+          {
+            "week": "${WEEK_NUM}",
+            "date": "${REPORT_DATE}",
+            "pipeline": {
+              "total": ${TOTAL},
+              "new": ${NEW},
+              "contacted": ${CONTACTED},
+              "interested": ${INTERESTED},
+              "responded": ${RESPONDED},
+              "launched": ${LAUNCHED}
+            },
+            "conversion": {
+              "response_rate": ${RESPONSE_RATE},
+              "conversion_rate": ${CONVERSION_RATE}
+            },
+            "revenue": {
+              "estimate": ${REVENUE_ESTIMATE}
+            },
+            "audience": {
+              "avg_followers": ${AVG_FOLLOWERS}
+            },
+            "emails": {
+              "sent": ${EMAIL_SENT},
+              "opened": ${EMAIL_OPENED},
+              "replied": ${EMAIL_REPLIED}
+            },
+            "funnel": [
+              {"stage": "Identified", "count": ${TOTAL}},
+              {"stage": "Contacted", "count": ${CONTACTED}},
+              {"stage": "Interested", "count": ${INTERESTED}},
+              {"stage": "Responded", "count": ${RESPONDED}},
+              {"stage": "Launched", "count": ${LAUNCHED}}
+            ]
+          }
+          EOF
+
+          # ── Build markdown report ──────────────────────────────────
+          cat > "$REPORT_PATH" <<EOF
+          # Weekly Analytics Report — Week ${WEEK_NUM}
+
+          **Generated:** ${REPORT_DATE} UTC
+          **Repository:** digital-product-agency
+
+          ---
+
+          ## Key Metrics
+
+          | Metric | Value |
+          |--------|-------|
+          | Total Creators | ${TOTAL} |
+          | New (Uncontacted) | ${NEW} |
+          | Contacted | ${CONTACTED} |
+          | Interested | ${INTERESTED} |
+          | Responded | ${RESPONDED} |
+          | Products Launched | ${LAUNCHED} |
+          | Response Rate | ${RESPONSE_RATE}% |
+          | Conversion Rate | ${CONVERSION_RATE}% |
+          | Revenue Estimate | \$${REVENUE_ESTIMATE} |
+          | Avg Followers | ${AVG_FOLLOWERS} |
+
+          ## Conversion Funnel
+
+          \`\`\`
+          Identified  ████████████████████████████  ${TOTAL}
+          Contacted   ██████████████████            ${CONTACTED}
+          Interested  ██████████                    ${INTERESTED}
+          Responded   ██████                        ${RESPONDED}
+          Launched    ███                           ${LAUNCHED}
+          \`\`\`
+
+          ## Niche Breakdown
+
+          \`\`\`
+          $(echo "$NICHE_DATA")
+          \`\`\`
+
+          ## Email Performance
+
+          | Metric | Value |
+          |--------|-------|
+          | Emails Sent | ${EMAIL_SENT} |
+          | Opened | ${EMAIL_OPENED} |
+          | Replied | ${EMAIL_REPLIED} |
+
+          ## Pipeline by Status
+
+          | Status | Count |
+          |--------|-------|
+          | New | ${NEW} |
+          | Contacted | ${CONTACTED} |
+          | Interested | ${INTERESTED} |
+          | Responded | ${RESPONDED} |
+          | Launched | ${LAUNCHED} |
+          EOF
+
+          if [ "$PREV_TOTAL" -gt 0 ]; then
+            cat >> "$REPORT_PATH" <<EOF
+
+          ## Week-over-Week Comparison
+
+          | Metric | This Week | Last Week | Change |
+          |--------|-----------|-----------|--------|
+          | Total Creators | ${TOTAL} | ${PREV_TOTAL} | ${DELTA_TOTAL} |
+          | Products Launched | ${LAUNCHED} | ${PREV_LAUNCHED} | ${DELTA_LAUNCHED} |
+          | Revenue Estimate | \$${REVENUE_ESTIMATE} | \$${PREV_REVENUE} | \$${DELTA_REVENUE} |
+          EOF
+          fi
+
+          if [ -f data/pipeline.csv ]; then
+            cat >> "$REPORT_PATH" <<EOF
+
+          ## Top Creators by Followers
+
+          | Name | Handle | Followers | Niche | Status |
+          |------|--------|-----------|-------|--------|
+          $(tail -n +2 data/pipeline.csv | sort -t',' -k3 -rn | head -5)
+          EOF
+          fi
+
+          cat >> "$REPORT_PATH" <<EOF
+
+          ---
+
+          *Chart data saved to: \`${CHART_PATH}\`*
+          *Report saved to: \`${REPORT_PATH}\`*
+          EOF
+
+          echo "REPORT_PATH=${REPORT_PATH}" >> $GITHUB_ENV
+          echo "CHART_PATH=${CHART_PATH}" >> $GITHUB_ENV
+          echo "WEEK_NUM=${WEEK_NUM}" >> $GITHUB_ENV
+          echo "TOTAL=${TOTAL}" >> $GITHUB_ENV
+          echo "CONTACTED=${CONTACTED}" >> $GITHUB_ENV
+          echo "LAUNCHED=${LAUNCHED}" >> $GITHUB_ENV
+          echo "REVENUE_ESTIMATE=${REVENUE_ESTIMATE}" >> $GITHUB_ENV
+          echo "RESPONSE_RATE=${RESPONSE_RATE}" >> $GITHUB_ENV
+          echo "REPORT_DATE=${REPORT_DATE}" >> $GITHUB_ENV
+          echo "delta_total_label=${delta_total_label}" >> $GITHUB_ENV
+          echo "delta_launched_label=${delta_launched_label}" >> $GITHUB_ENV
+          echo "delta_revenue_label=${delta_revenue_label}" >> $GITHUB_ENV
+
+      - name: Create GitHub Issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TITLE="Weekly Analytics — Week ${{ env.WEEK_NUM }} (${{ env.REPORT_DATE }})"
+          BODY=$(cat <<ISSUE_EOF
+          ## Analytics Summary
+
+          | Metric | Value |
+          |--------|-------|
+          | Total Creators | ${{ env.TOTAL }}${{ env.delta_total_label }} |
+          | Contacted | ${{ env.CONTACTED }} |
+          | Products Launched | ${{ env.LAUNCHED }}${{ env.delta_launched_label }} |
+          | Revenue Estimate | \$${{ env.REVENUE_ESTIMATE }}${{ env.delta_revenue_label }} |
+          | Response Rate | ${{ env.RESPONSE_RATE }}% |
+
+          Full report: \`${{ env.REPORT_PATH }}\`
+          Chart data: \`${{ env.CHART_PATH }}\`
+
+          ---
+
+          ### Action Items
+          - Review conversion funnel and identify bottlenecks
+          - Follow up with interested creators who haven't responded
+          - Plan next week's outreach based on niche performance
+
+          **Labels:** analytics, weekly-report
+          ISSUE_EOF
+          )
+
+          gh issue create \
+            --title "$TITLE" \
+            --body "$BODY" \
+            --label "analytics" \
+            --label "weekly-report" || echo "Issue creation skipped (label may not exist)"
+
+      - name: Commit report
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/reports/
+          git diff --cached --quiet || git commit -m "analytics: weekly report week ${{ env.WEEK_NUM }}"
+          git push || echo "Push failed — likely no changes"

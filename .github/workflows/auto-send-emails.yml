@@ -1,0 +1,149 @@
+name: Auto Send Email Sequences
+
+on:
+  workflow_dispatch:
+    inputs:
+      creator_email:
+        description: "Creator's email address"
+        required: true
+        type: string
+      creator_name:
+        description: "Creator's name"
+        required: true
+        type: string
+      product_name:
+        description: "Product name"
+        required: true
+        type: string
+      email_number:
+        description: "Email number (1-8)"
+        required: true
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+          - "6"
+          - "7"
+          - "8"
+
+jobs:
+  send-email:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install secure-smtplib
+
+      - name: Extract and send email
+        env:
+          SENDER_EMAIL: ${{ vars.SENDER_EMAIL }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          CREATOR_EMAIL: ${{ inputs.creator_email }}
+          CREATOR_NAME: ${{ inputs.creator_name }}
+          PRODUCT_NAME: ${{ inputs.product_name }}
+          EMAIL_NUMBER: ${{ inputs.email_number }}
+        run: |
+          python << 'PYTHON_SCRIPT'
+          import os
+          import re
+          import smtplib
+          from email.mime.text import MIMEText
+          from email.mime.multipart import MIMEMultipart
+          from datetime import datetime
+
+          sender_email = os.environ["SENDER_EMAIL"]
+          app_password = os.environ["GMAIL_APP_PASSWORD"]
+          creator_email = os.environ["CREATOR_EMAIL"]
+          creator_name = os.environ["CREATOR_NAME"]
+          product_name = os.environ["PRODUCT_NAME"]
+          email_number = int(os.environ["EMAIL_NUMBER"])
+
+          # Read templates file
+          with open("templates/email-templates.md", "r", encoding="utf-8") as f:
+              content = f.read()
+
+          # Split by email headers (## Email N:)
+          pattern = r"## Email (\d+):\s*(.+?)\n(.*?)(?=## Email \d+:|$)"
+          matches = re.findall(pattern, content, re.DOTALL)
+
+          email_data = {}
+          for num, subject, body in matches:
+              email_data[int(num)] = {
+                  "subject": subject.strip(),
+                  "body": body.strip()
+              }
+
+          if email_number not in email_data:
+              print(f"Error: Email {email_number} not found in templates")
+              exit(1)
+
+          selected = email_data[email_number]
+
+          # Replace variables
+          your_name = os.environ.get("YOUR_NAME", "Digital Product Agency")
+          your_email = os.environ.get("YOUR_EMAIL", sender_email)
+
+          replacements = {
+              "{{creator_name}}": creator_name,
+              "{{product_name}}": product_name,
+              "{{your_name}}": your_name,
+              "{{your_email}}": your_email,
+              "{{creator_email}}": creator_email,
+          }
+
+          subject = selected["subject"]
+          body = selected["body"]
+
+          for placeholder, value in replacements.items():
+              subject = subject.replace(placeholder, value)
+              body = body.replace(placeholder, value)
+
+          # Build email
+          msg = MIMEMultipart()
+          msg["From"] = f"{your_name} <{sender_email}>"
+          msg["To"] = creator_email
+          msg["Subject"] = subject
+          msg.attach(MIMEText(body, "plain"))
+
+          # Send via Gmail SMTP
+          try:
+              with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+                  server.login(sender_email, app_password)
+                  server.sendmail(sender_email, creator_email, msg.as_string())
+              print(f"Email {email_number} sent successfully to {creator_email}")
+              status = "sent"
+          except Exception as e:
+              print(f"Failed to send email: {e}")
+              status = f"failed: {e}"
+
+          # Log to email-log.md
+          log_entry = (
+              f"| {datetime.now().strftime('%Y-%m-%d %H:%M')} | "
+              f"{creator_name} | {creator_email} | {product_name} | "
+              f"Email {email_number} | {subject} | {status} |\n"
+          )
+
+          log_file = "data/email-log.md"
+          if os.path.exists(log_file):
+              with open(log_file, "r", encoding="utf-8") as f:
+                  log_content = f.read()
+          else:
+              log_content = "# Email Log\n\n| Date | Creator | Email | Product | Email # | Subject | Status |\n|------|---------|-------|---------|---------|---------|--------|\n"
+
+          log_content += log_entry
+
+          with open(log_file, "w", encoding="utf-8") as f:
+              f.write(log_content)
+
+          print(f"Logged to {log_file}")
+          PYTHON_SCRIPT
