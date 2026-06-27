@@ -106,7 +106,8 @@ Would you be open to a quick chat to discuss potential partnership ideas?
 Looking forward to hearing from you.
 
 Best regards,
-$SENDER_EMAIL"
+Khalid Khan
+Email: khalid.khan46571@gmail.com | LinkedIn: www.linkedin.com/in/khalid-khan-4b548033b"
 
             curl -s -u "$SENDER_EMAIL:$GMAIL_APP_PASSWORD" \
               -H "From: $SENDER_EMAIL" \

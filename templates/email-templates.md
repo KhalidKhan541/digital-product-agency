@@ -26,6 +26,7 @@ Interested? Reply YES and I'll send you a free sample.
 
 Best,
 {{your_name}}
+Email: khalid.khan46571@gmail.com | LinkedIn: www.linkedin.com/in/khalid-khan-4b548033b
 
 ---
 
@@ -56,6 +57,7 @@ Want to see the full product? Reply SAMPLE and I'll send it over.
 
 Best,
 {{your_name}}
+Email: khalid.khan46571@gmail.com | LinkedIn: www.linkedin.com/in/khalid-khan-4b548033b
 
 ---
 
@@ -91,6 +93,7 @@ Ready to start? Reply LAUNCH and I'll have a product ready for you in 48 hours.
 
 Best,
 {{your_name}}
+Email: khalid.khan46571@gmail.com | LinkedIn: www.linkedin.com/in/khalid-khan-4b548033b
 
 ---
 
@@ -132,6 +135,7 @@ Reply YES to claim your spot.
 
 Best,
 {{your_name}}
+Email: khalid.khan46571@gmail.com | LinkedIn: www.linkedin.com/in/khalid-khan-4b548033b
 
 ---
 
@@ -173,6 +177,7 @@ If not, no hard feelings. I wish you the best with your content.
 
 Best,
 {{your_name}}
+Email: khalid.khan46571@gmail.com | LinkedIn: www.linkedin.com/in/khalid-khan-4b548033b
 
 P.S. - The creator I told you about? She just hit $5,000 in total sales. Your turn.
 
@@ -198,6 +203,7 @@ Just reply YES or NO.
 
 Best,
 {{your_name}}
+Email: khalid.khan46571@gmail.com | LinkedIn: www.linkedin.com/in/khalid-khan-4b548033b
 
 ---
 
@@ -223,6 +229,7 @@ Either way, keep creating great content. Your audience is lucky to have you.
 
 Best,
 {{your_name}}
+Email: khalid.khan46571@gmail.com | LinkedIn: www.linkedin.com/in/khalid-khan-4b548033b
 
 P.S. - The offer stands whenever you're ready. No expiration.
 
