@@ -2,65 +2,95 @@ name: Auto Find Creators
 
 on:
   schedule:
-    - cron: '0 8 * * 1'  # Every Monday at 8 AM UTC
+    - cron: "0 4 * * *"
   workflow_dispatch:
+    inputs:
+      niche:
+        description: "Niche or keyword to search for"
+        required: false
+        type: string
+      keyword:
+        description: "Alternative keyword filter"
+        required: false
+        type: string
 
 jobs:
   find-creators:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Search for new creators
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run Twitter creator finder
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
         run: |
-          echo "## Weekly Creator Search" > data/search-report.md
-          echo "Date: $(date -u)" >> data/search-report.md
-          echo "" >> data/search-report.md
-          
-          # Generate search queries
-          QUERIES=$(curl -s https://api.groq.com/openai/v1/chat/completions \
-            -H "Authorization: Bearer $GROQ_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "model": "llama-3.3-70b-versatile",
-              "messages": [
-                {"role": "system", "content": "Output JSON only. No explanation."},
-                {"role": "user", "content": "Generate 10 Twitter search queries to find content creators with 10K-100K followers who have no digital products. Focus on fitness, finance, tech, lifestyle, marketing niches. Output as JSON array."}
-              ],
-              "temperature": 0.7
-            }' | jq -r '.choices[0].message.content')
-          
-          echo "### Search Queries" >> data/search-report.md
-          echo "$QUERIES" >> data/search-report.md
-          echo "" >> data/search-report.md
-          
-          # Generate potential creators list
-          CREATORS=$(curl -s https://api.groq.com/openai/v1/chat/completions \
-            -H "Authorization: Bearer $GROQ_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "model": "llama-3.3-70b-versatile",
-              "messages": [
-                {"role": "system", "content": "Output JSON only. No explanation."},
-                {"role": "user", "content": "Generate 10 fictional but realistic content creators who might exist on Twitter. Include: name, handle, followers (10K-100K), niche, why they would be good candidates for digital products. Make them diverse across fitness, finance, tech, lifestyle, marketing."}
-              ],
-              "temperature": 0.8
-            }' | jq -r '.choices[0].message.content')
-          
-          echo "### Potential Creators" >> data/search-report.md
-          echo "$CREATORS" >> data/search-report.md
-          echo "" >> data/search-report.md
-          
-          echo "### Next Steps" >> data/search-report.md
-          echo "1. Search Twitter using the queries above" >> data/search-report.md
-          echo "2. Verify creators have no products" >> data/search-report.md
-          echo "3. Add to data/pipeline.csv" >> data/search-report.md
-          echo "4. Run generate-dms workflow" >> data/search-report.md
+          ARGS=""
+          if [ -n "${{ github.event.inputs.niche }}" ]; then
+            ARGS="--niche ${{ github.event.inputs.niche }}"
+          fi
+          if [ -n "${{ github.event.inputs.keyword }}" ]; then
+            ARGS="$ARGS --keyword ${{ github.event.inputs.keyword }}"
+          fi
+          python scripts/twitter_finder.py $ARGS
 
-      - name: Save report
-        uses: actions/upload-artifact@v4
-        with:
-          name: creator-search-report
-          path: data/search-report.md
+      - name: Merge new creators into pipeline.csv
+        run: |
+          python -c "
+          import csv, os
+
+          new_file = 'new_creators.csv'
+          pipeline = 'pipeline.csv'
+
+          if not os.path.exists(new_file):
+              print('No new creators file found, skipping merge.')
+              exit(0)
+
+          existing = set()
+          if os.path.exists(pipeline):
+              with open(pipeline, 'r', newline='', encoding='utf-8') as f:
+                  for row in csv.DictReader(f):
+                      existing.add(row.get('username', '').lower())
+
+          new_rows = []
+          with open(new_file, 'r', newline='', encoding='utf-8') as f:
+              for row in csv.DictReader(f):
+                  if row.get('username', '').lower() not in existing:
+                      new_rows.append(row)
+
+          if not new_rows:
+              print('No new creators to add.')
+              exit(0)
+
+          fieldnames = list(new_rows[0].keys())
+          write_header = not os.path.exists(pipeline)
+
+          with open(pipeline, 'a', newline='', encoding='utf-8') as f:
+              writer = csv.DictWriter(f, fieldnames=fieldnames)
+              if write_header:
+                  writer.writeheader()
+              writer.writerows(new_rows)
+
+          print(f'Added {len(new_rows)} new creators to pipeline.csv')
+          "
+
+      - name: Commit updated pipeline
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pipeline.csv
+          if git diff --cached --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "Update pipeline.csv with new creators"
+            git push
+          fi

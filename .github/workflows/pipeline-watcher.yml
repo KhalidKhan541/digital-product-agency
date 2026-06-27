@@ -1,0 +1,143 @@
+name: Pipeline Watcher - New Creator
+
+on:
+  push:
+    paths:
+      - "data/pipeline.csv"
+
+env:
+  GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+  GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+  SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
+  RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+
+jobs:
+  detect-new-creators:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check if new creators were added
+        id: check_creators
+        run: |
+          echo "=== Checking for new creators in pipeline.csv ==="
+
+          DIFF=$(git diff HEAD~1 HEAD -- data/pipeline.csv || true)
+
+          if [ -z "$DIFF" ]; then
+            echo "No changes detected in pipeline.csv"
+            echo "new_creators=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Changes detected in pipeline.csv:"
+          echo "$DIFF"
+
+          NEW_LINES=$(echo "$DIFF" | grep '^+' | grep -v '^+++' || true)
+          REMOVED_LINES=$(echo "$DIFF" | grep '^-' | grep -v '^---' || true)
+
+          if [ -z "$NEW_LINES" ]; then
+            echo "No new creators added"
+            echo "new_creators=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [ -n "$REMOVED_LINES" ]; then
+            REMOVED_DATA=$(echo "$REMOVED_LINES" | sed 's/^-//' | sort)
+            NEW_DATA=$(echo "$NEW_LINES" | sed 's/^+//' | sort)
+
+            ACTUAL_NEW=$(comm -13 <(echo "$REMOVED_DATA") <(echo "$NEW_DATA") || true)
+
+            if [ -z "$ACTUAL_NEW" ]; then
+              echo "Changes detected but no net new creators"
+              echo "new_creators=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            echo "New creator rows detected:"
+            echo "$ACTUAL_NEW"
+          else
+            echo "New creator rows detected (no removals):"
+            echo "$NEW_LINES"
+          fi
+
+          echo "new_creators=true" >> "$GITHUB_OUTPUT"
+
+      - name: Run email tracker for intro emails
+        if: steps.check_creators.outputs.new_creators == 'true'
+        run: |
+          echo "=== New creators found! Sending intro emails ==="
+
+          NEW_ENTRIES=$(git diff HEAD~1 HEAD -- data/pipeline.csv | grep '^+' | grep -v '^+++' | sed 's/^+//')
+
+          echo "Processing new creator entries:"
+          echo "$NEW_ENTRIES"
+
+          IFS=$'\n' readarray -t ENTRIES <<< "$NEW_ENTRIES"
+
+          for ENTRY in "${ENTRIES[@]}"; do
+            [ -z "$ENTRY" ] && continue
+
+            NAME=$(echo "$ENTRY" | cut -d',' -f1 | xargs)
+            EMAIL=$(echo "$ENTRY" | cut -d',' -f2 | xargs)
+            PLATFORM=$(echo "$ENTRY" | cut -d',' -f3 | xargs)
+            HANDLE=$(echo "$ENTRY" | cut -d',' -f4 | xargs)
+
+            if [ -z "$EMAIL" ]; then
+              echo "Skipping entry without email: $ENTRY"
+              continue
+            fi
+
+            echo "Sending intro email to $NAME ($EMAIL) on $PLATFORM"
+
+            SUBJECT="Collaboration Opportunity - Digital Product Agency"
+
+            BODY="Hi $NAME,
+
+I came across your work on $PLATFORM and was really impressed by your content and audience engagement.
+
+We run a digital product agency and believe there's a great opportunity for us to collaborate. We'd love to explore how we can work together to create something valuable for your audience.
+
+Would you be open to a quick chat to discuss potential partnership ideas?
+
+Looking forward to hearing from you.
+
+Best regards,
+$SENDER_EMAIL"
+
+            curl -s -u "$SENDER_EMAIL:$GMAIL_APP_PASSWORD" \
+              -H "From: $SENDER_EMAIL" \
+              -H "To: $EMAIL" \
+              -H "Subject: $SUBJECT" \
+              -H "Content-Type: text/plain; charset=utf-8" \
+              --ssl-ssl \
+              "https://smtp.gmail.com:465" \
+              -d "$BODY" || {
+                echo "Failed to send email to $EMAIL"
+                continue
+              }
+
+            echo "Intro email sent successfully to $NAME ($EMAIL)"
+          done
+
+          echo "=== All intro emails processed ==="
+
+      - name: Commit updated pipeline.csv
+        if: steps.check_creators.outputs.new_creators == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git add data/pipeline.csv
+
+          if git diff --cached --quiet; then
+            echo "No staged changes to commit"
+            exit 0
+          fi
+
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          git commit -m "chore: update pipeline after new creator detection [skip ci]"
+          git push
