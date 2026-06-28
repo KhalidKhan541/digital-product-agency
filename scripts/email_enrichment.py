@@ -12,92 +12,104 @@ GROQ_MODEL = "llama-3.3-70b-versatile"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-    "Accept-Language": "en-US,en;q=0.9",
 }
 
 EMAIL_REGEX = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
 SKIP_DOMAINS = {'example.com', 'email.com', 'sentry.io', 'wixpress.com', 'github.com',
                 'googleusercontent.com', 'google.com', 'facebook.com', 'twitter.com',
-                'instagram.com', 'tiktok.com', 'youtube.com', 'substack.com'}
+                'instagram.com', 'tiktok.com', 'youtube.com', 'substack.com', 'x.com'}
 
 
-def bing_search(query):
+def ddg_search(query):
     encoded = urllib.parse.quote_plus(query)
-    url = f"https://www.bing.com/search?q={encoded}"
+    url = f"https://html.duckduckgo.com/html/?q={encoded}"
     try:
         req = urllib.request.Request(url, headers=HEADERS)
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
             return resp.read().decode('utf-8', errors='ignore')
     except Exception as e:
-        print(f"  Bing search failed: {e}")
+        print(f"    DDG failed: {e}")
     return ""
 
 
-def extract_emails_from_text(text):
+def extract_emails(text):
     raw = re.findall(EMAIL_REGEX, text)
-    valid = []
-    for e in raw:
-        domain = e.split('@')[1].lower()
-        if domain not in SKIP_DOMAINS and not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
-            valid.append(e.lower())
-    return list(set(valid))
+    return [e.lower() for e in raw if e.split('@')[1].lower() not in SKIP_DOMAINS
+            and not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))]
+
+
+def extract_website_url(html):
+    match = re.search(r'href="(https?://[^"]*)"', html)
+    if match:
+        url = match.group(1)
+        if not any(x in url for x in ['twitter.com', 'x.com', 'instagram.com', 'facebook.com', 'tiktok.com']):
+            return url
+    return None
+
+
+def scrape_website_for_email(url):
+    try:
+        req = urllib.request.Request(url, headers=HEADERS)
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read().decode('utf-8', errors='ignore')
+            emails = extract_emails(html)
+            return emails[0] if emails else None
+    except:
+        return None
 
 
 def find_email_via_groq(client, name, handle, niche):
-    prompt = f"""You are a research assistant. Given this content creator info, guess their most likely business email address.
+    prompt = f"""Find the email address for this Twitter/X content creator:
 
-Creator: {name}
+Name: {name}
 Handle: @{handle}
 Niche: {niche}
 
-Common email patterns for creators:
-- {{name}}@gmail.com
-- {{first}}@{{domain}}.com (if they have a website)
-- hello@{{domain}}.com
-- contact@{{domain}}.com
-
-Use the Groq API websearch or your knowledge to find any public email for this person.
-Return ONLY a JSON object:
-{{"email": "found@email.com"}} or {{"email": null}} if you cannot find one."""
+Search your knowledge for any public email this creator has shared.
+Return ONLY: {{"email": "email@example.com"}} or {{"email": null}}"""
 
     try:
         response = client.chat.completions.create(
             model=GROQ_MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.1,
-            max_tokens=150
+            max_tokens=100
         )
         text = response.choices[0].message.content.strip()
         match = re.search(r'\{[^{}]*"email"[^{}]*\}', text)
         if match:
             result = json.loads(match.group())
             email = result.get("email")
-            if email and '@' in email:
+            if email and '@' in email and email != 'null':
                 return email
     except Exception as e:
-        print(f"  Groq guess error: {e}")
+        print(f"    Groq error: {e}")
     return None
 
 
-def search_creator_email(client, name, handle, niche):
+def search_creator(client, name, handle, niche):
     queries = [
-        f'"{name}" email contact',
         f'"{name}" "{handle}" email',
-        f'{name} {niche} newsletter email',
-        f'site:linkedin.com "{name}" {handle}',
+        f'"{name}" contact email {niche}',
+        f'@{handle} email newsletter',
     ]
 
-    for query in queries:
-        print(f"  Searching: {query}")
-        html = bing_search(query)
+    for q in queries:
+        print(f"    Search: {q}")
+        html = ddg_search(q)
         if html:
-            emails = extract_emails_from_text(html)
+            emails = extract_emails(html)
             if emails:
                 return emails[0]
-        time.sleep(1)
+            website = extract_website_url(html)
+            if website:
+                print(f"    Found website: {website}")
+                email = scrape_website_for_email(website)
+                if email:
+                    return email
+        time.sleep(2)
 
-    print("  Trying Groq AI guess...")
+    print("    Trying Groq AI...")
     email = find_email_via_groq(client, name, handle, niche)
     if email:
         return email
@@ -105,7 +117,7 @@ def search_creator_email(client, name, handle, niche):
     return None
 
 
-def is_email_searchable(email):
+def needs_search(email):
     return not email or email.strip() in ("", "none", "null", "nan", "not_found")
 
 
@@ -118,7 +130,7 @@ def main():
     client = Groq(api_key=api_key)
 
     if not os.path.exists(CSV_PATH):
-        print(f"Error: CSV not found at {CSV_PATH}")
+        print(f"Error: CSV not found")
         return
 
     rows = []
@@ -128,45 +140,40 @@ def main():
         for row in reader:
             rows.append(row)
 
-    creators = [row for row in rows if is_email_searchable(row.get('email', ''))]
+    creators = [r for r in rows if needs_search(r.get('email', ''))]
 
     if not creators:
-        print("All creators already have emails.")
+        print("All creators have emails.")
         return
 
-    print(f"Searching emails for {len(creators)} creators")
-    print("=" * 60)
+    print(f"Searching {len(creators)} creators")
+    print("=" * 50)
 
     found = 0
-    not_found = 0
-
     for i, row in enumerate(creators, 1):
-        name = row.get('name', 'Unknown')
+        name = row.get('name', '?')
         handle = row.get('handle', '')
         niche = row.get('niche', '')
 
         print(f"\n[{i}/{len(creators)}] {name} (@{handle})")
-
-        email = search_creator_email(client, name, handle, niche)
+        email = search_creator(client, name, handle, niche)
 
         if email:
             row['email'] = email
             row['email_stage'] = 'none'
             found += 1
-            print(f"  FOUND: {email}")
+            print(f"  => {email}")
         else:
             row['email'] = ''
             row['email_stage'] = 'none'
-            not_found += 1
-            print(f"  NOT FOUND - will retry next run")
+            print(f"  => not found")
 
     with open(CSV_PATH, 'w', newline='', encoding='utf-8') as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(rows)
 
-    print("\n" + "=" * 60)
-    print(f"DONE - Found: {found}, Not found: {not_found}")
+    print(f"\nDone: {found}/{len(creators)} found")
 
 
 if __name__ == "__main__":
