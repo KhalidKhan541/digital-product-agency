@@ -128,9 +128,9 @@ def search_creator(client, name, handle, niche):
         time.sleep(2)
 
     print("    Trying Groq AI...")
-        email = find_email_via_groq(client, name, handle, niche)
-        if email and is_valid_email(email):
-            return email
+    email = find_email_via_groq(client, name, handle, niche)
+    if email and is_valid_email(email):
+        return email
 
     return None
 
