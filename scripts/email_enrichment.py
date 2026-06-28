@@ -1,87 +1,83 @@
 import os
 import csv
 import re
-import time
 import json
-import urllib.parse
 import urllib.request
 from groq import Groq
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'pipeline.csv')
 GROQ_MODEL = "llama-3.3-70b-versatile"
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-}
-
-EMAIL_REGEX = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
 SKIP_DOMAINS = {'example.com', 'email.com', 'sentry.io', 'wixpress.com', 'github.com',
                 'googleusercontent.com', 'google.com', 'facebook.com', 'twitter.com',
                 'instagram.com', 'tiktok.com', 'youtube.com', 'substack.com', 'x.com',
                 'duckduckgo.com', 'bing.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
-                'protonmail.com', 'aol.com', 'mail.com', 'icloud.com'}
+                'protonmail.com', 'aol.com', 'mail.com', 'icloud.com', 'brave.com'}
+
+EMAIL_REGEX = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
 
 
 def is_valid_email(email):
-    if not email or '@' not in email:
+    if not email or '@' not in email or len(email) < 6 or len(email) > 100:
         return False
     domain = email.split('@')[1].lower()
     if domain in SKIP_DOMAINS:
         return False
-    if email.startswith('error-') or email.startswith('noreply') or email.startswith('no-reply'):
+    if email.startswith(('error-', 'noreply', 'no-reply', 'test', 'admin@')):
         return False
-    if len(email) < 6 or len(email) > 100:
-        return False
-    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
-        return False
-    return True
+    return bool(re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email))
 
 
-def ddg_search(query):
-    encoded = urllib.parse.quote_plus(query)
-    url = f"https://html.duckduckgo.com/html/?q={encoded}"
+def exa_search(query, api_key, num_results=5):
+    data = json.dumps({
+        "query": query,
+        "numResults": num_results,
+        "type": "neural",
+        "contents": {"highlights": True, "text": True}
+    }).encode('utf-8')
+
+    req = urllib.request.Request(
+        "https://api.exa.ai/search",
+        data=data,
+        headers={
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+        },
+        method='POST'
+    )
+
     try:
-        req = urllib.request.Request(url, headers=HEADERS)
         with urllib.request.urlopen(req, timeout=15) as resp:
-            return resp.read().decode('utf-8', errors='ignore')
+            return json.loads(resp.read())
     except Exception as e:
-        print(f"    DDG failed: {e}")
-    return ""
-
-
-def extract_emails(text):
-    raw = re.findall(EMAIL_REGEX, text)
-    return [e.lower() for e in raw if is_valid_email(e)]
-
-
-def extract_website_url(html):
-    match = re.search(r'href="(https?://[^"]*)"', html)
-    if match:
-        url = match.group(1)
-        if not any(x in url for x in ['twitter.com', 'x.com', 'instagram.com', 'facebook.com', 'tiktok.com']):
-            return url
+        print(f"    Exa error: {e}")
     return None
 
 
-def scrape_website_for_email(url):
-    try:
-        req = urllib.request.Request(url, headers=HEADERS)
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            html = resp.read().decode('utf-8', errors='ignore')
-            emails = extract_emails(html)
-            return emails[0] if emails else None
-    except:
-        return None
+def extract_emails_from_exa(results):
+    emails = []
+    if not results:
+        return emails
+
+    for r in results.get('results', []):
+        text = r.get('text', '') or ''
+        highlights = r.get('highlights', []) or []
+        all_text = text + ' ' + ' '.join(highlights)
+        found = re.findall(EMAIL_REGEX, all_text)
+        for e in found:
+            if is_valid_email(e):
+                emails.append(e.lower())
+
+    return list(set(emails))
 
 
 def find_email_via_groq(client, name, handle, niche):
-    prompt = f"""Find the email address for this Twitter/X content creator:
+    prompt = f"""Find the email address for this content creator:
 
 Name: {name}
 Handle: @{handle}
 Niche: {niche}
 
-Search your knowledge for any public email this creator has shared.
 Return ONLY: {{"email": "email@example.com"}} or {{"email": null}}"""
 
     try:
@@ -96,43 +92,32 @@ Return ONLY: {{"email": "email@example.com"}} or {{"email": null}}"""
         if match:
             result = json.loads(match.group())
             email = result.get("email")
-            if email and '@' in email and email != 'null':
+            if email and '@' in email and email != 'null' and is_valid_email(email):
                 return email
     except Exception as e:
         print(f"    Groq error: {e}")
     return None
 
 
-def search_creator(client, name, handle, niche):
+def search_creator(client, exa_key, name, handle, niche):
     queries = [
-        f'"{name}" "{handle}" email',
-        f'"{name}" contact email {niche}',
-        f'@{handle} email newsletter',
+        f'{name} {handle} email contact',
+        f'{name} {niche} creator email',
+        f'{handle} newsletter email',
     ]
 
     for q in queries:
-        print(f"    Search: {q}")
-        html = ddg_search(q)
-        if html:
-            emails = extract_emails(html)
+        print(f"    Exa: {q}")
+        result = exa_search(q, exa_key, num_results=3)
+        if result:
+            emails = extract_emails_from_exa(result)
             if emails:
-                valid = [e for e in emails if is_valid_email(e)]
-                if valid:
-                    return valid[0]
-            website = extract_website_url(html)
-            if website:
-                print(f"    Found website: {website}")
-                email = scrape_website_for_email(website)
-                if email and is_valid_email(email):
-                    return email
-        time.sleep(2)
+                return emails[0]
+        import time
+        time.sleep(1)
 
     print("    Trying Groq AI...")
-    email = find_email_via_groq(client, name, handle, niche)
-    if email and is_valid_email(email):
-        return email
-
-    return None
+    return find_email_via_groq(client, name, handle, niche)
 
 
 def needs_search(email):
@@ -141,8 +126,14 @@ def needs_search(email):
 
 def main():
     api_key = os.environ.get("GROQ_API_KEY")
+    exa_key = os.environ.get("EXA_API_KEY")
+
     if not api_key:
         print("Error: GROQ_API_KEY not set")
+        return
+    if not exa_key:
+        print("Error: EXA_API_KEY not set")
+        print("Get free key at https://dashboard.exa.ai (20,000 free requests/month)")
         return
 
     client = Groq(api_key=api_key)
@@ -164,7 +155,7 @@ def main():
         print("All creators have emails.")
         return
 
-    print(f"Searching {len(creators)} creators")
+    print(f"Searching {len(creators)} creators with Exa AI")
     print("=" * 50)
 
     found = 0
@@ -174,9 +165,9 @@ def main():
         niche = row.get('niche', '')
 
         print(f"\n[{i}/{len(creators)}] {name} (@{handle})")
-        email = search_creator(client, name, handle, niche)
+        email = search_creator(client, exa_key, name, handle, niche)
 
-        if email:
+        if email and is_valid_email(email):
             row['email'] = email
             row['email_stage'] = 'none'
             found += 1
