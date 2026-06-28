@@ -191,7 +191,7 @@ def get_next_email_stage(current_stage: str) -> str | None:
 def should_send_email(creator: dict) -> tuple[bool, str]:
     """Check if an email should be sent to this creator. Returns (should_send, next_stage)."""
     email = creator.get("email", "").strip()
-    if not email:
+    if not email or email in ("not_found", "none", "null", "n/a"):
         return False, ""
 
     stage = creator.get("email_stage", "none").strip()
