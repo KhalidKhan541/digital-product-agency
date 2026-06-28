@@ -174,7 +174,15 @@ def send_email(to_email: str, to_name: str, subject: str, body: str) -> bool:
 
 def get_next_email_stage(current_stage: str) -> str | None:
     """Return the next email stage after current_stage."""
-    stage_num = int(current_stage.split("_")[1]) if current_stage != "none" else 0
+    if current_stage == "none":
+        stage_num = 0
+    elif current_stage.startswith("email_"):
+        try:
+            stage_num = int(current_stage.split("_")[1])
+        except (IndexError, ValueError):
+            stage_num = 0
+    else:
+        stage_num = 0
     next_num = stage_num + 1
     next_stage = f"email_{next_num}"
     return next_stage if next_num <= 8 else None

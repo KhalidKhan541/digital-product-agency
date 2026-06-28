@@ -167,7 +167,7 @@ def main():
         
         if emails:
             row['email'] = emails[0]
-            row['email_stage'] = 'found'
+            row['email_stage'] = 'none'
             emails_found += 1
             print(f"  FOUND: {emails[0]}")
         else:
