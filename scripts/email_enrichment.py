@@ -17,7 +17,24 @@ HEADERS = {
 EMAIL_REGEX = r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'
 SKIP_DOMAINS = {'example.com', 'email.com', 'sentry.io', 'wixpress.com', 'github.com',
                 'googleusercontent.com', 'google.com', 'facebook.com', 'twitter.com',
-                'instagram.com', 'tiktok.com', 'youtube.com', 'substack.com', 'x.com'}
+                'instagram.com', 'tiktok.com', 'youtube.com', 'substack.com', 'x.com',
+                'duckduckgo.com', 'bing.com', 'yahoo.com', 'hotmail.com', 'outlook.com',
+                'protonmail.com', 'aol.com', 'mail.com', 'icloud.com'}
+
+
+def is_valid_email(email):
+    if not email or '@' not in email:
+        return False
+    domain = email.split('@')[1].lower()
+    if domain in SKIP_DOMAINS:
+        return False
+    if email.startswith('error-') or email.startswith('noreply') or email.startswith('no-reply'):
+        return False
+    if len(email) < 6 or len(email) > 100:
+        return False
+    if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+        return False
+    return True
 
 
 def ddg_search(query):
@@ -34,8 +51,7 @@ def ddg_search(query):
 
 def extract_emails(text):
     raw = re.findall(EMAIL_REGEX, text)
-    return [e.lower() for e in raw if e.split('@')[1].lower() not in SKIP_DOMAINS
-            and not e.endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp'))]
+    return [e.lower() for e in raw if is_valid_email(e)]
 
 
 def extract_website_url(html):
@@ -100,19 +116,21 @@ def search_creator(client, name, handle, niche):
         if html:
             emails = extract_emails(html)
             if emails:
-                return emails[0]
+                valid = [e for e in emails if is_valid_email(e)]
+                if valid:
+                    return valid[0]
             website = extract_website_url(html)
             if website:
                 print(f"    Found website: {website}")
                 email = scrape_website_for_email(website)
-                if email:
+                if email and is_valid_email(email):
                     return email
         time.sleep(2)
 
     print("    Trying Groq AI...")
-    email = find_email_via_groq(client, name, handle, niche)
-    if email:
-        return email
+        email = find_email_via_groq(client, name, handle, niche)
+        if email and is_valid_email(email):
+            return email
 
     return None
 
