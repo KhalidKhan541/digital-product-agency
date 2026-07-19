@@ -47,7 +47,7 @@ jobs:
       - name: Extract and send email
         env:
           SENDER_EMAIL: ${{ vars.SENDER_EMAIL }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GMAIL_APP_PASSWORD: disabled
           CREATOR_EMAIL: ${{ inputs.creator_email }}
           CREATOR_NAME: ${{ inputs.creator_name }}
           PRODUCT_NAME: ${{ inputs.product_name }}

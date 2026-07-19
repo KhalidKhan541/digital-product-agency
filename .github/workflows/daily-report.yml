@@ -22,7 +22,7 @@ jobs:
       - name: Run daily report script
         env:
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
-          SENDER_EMAIL: ${{ secrets.SENDER_EMAIL }}
-          RECIPIENT_EMAIL: ${{ secrets.RECIPIENT_EMAIL }}
+          GMAIL_APP_PASSWORD: disabled
+          SENDER_EMAIL: disabled
+          RECIPIENT_EMAIL: disabled
         run: python scripts/daily_report_email.py
